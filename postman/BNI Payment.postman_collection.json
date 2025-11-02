@@ -1,0 +1,126 @@
+{
+  "info": {
+    "name": "BNI Payment",
+    "_postman_id": "b6955f8d-8a31-4e1f-9fd2-111111111111",
+    "description": "Postman collection for ESolution/BNIPayment package",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create VA (proxy via App)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_prefix}}/bni/va/mock-create",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "{{api_prefix}}",
+            "bni",
+            "va",
+            "mock-create"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"createbilling\",\n  \"client_id\": \"320\",\n  \"trx_id\": \"1230000111\",\n  \"datetime_expired\": \"2015-07-01 16:00:00\",\n  \"trx_amount\": \"100000\",\n  \"billing_type\": \"c\",\n  \"customer_name\": \"Mr. X\",\n  \"customer_email\": \"xxx@email.com\",\n  \"customer_phone\": \"08123123123\",\n  \"virtual_account\": \"8320000000000001\",\n  \"description\": \"Payment of Trx 123000001\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Update VA (proxy via App)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_prefix}}/bni/va/mock-update",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "{{api_prefix}}",
+            "bni",
+            "va",
+            "mock-update"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"client_id\": \"320\",\n  \"trx_id\": \"1230000001\",\n  \"trx_amount\": \"100000\",\n  \"customer_name\": \"Mr. X\",\n  \"customer_email\": \"xxx@email.com\",\n  \"customer_phone\": \"08123123123\",\n  \"virtual_account\": \"8320000000000999\",\n  \"description\": \"Payment of Trx 123000001\",\n  \"type\": \"updatebilling\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Inquiry VA (proxy via App)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_prefix}}/bni/va/mock-inquiry",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "{{api_prefix}}",
+            "bni",
+            "va",
+            "mock-inquiry"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"inquirybilling\",\n  \"client_id\": \"320\",\n  \"trx_id\": \"1230000001\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Payment Notification (simulate)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "your-origin"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_prefix}}/bni/va/payment-notification",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "{{api_prefix}}",
+            "bni",
+            "va",
+            "payment-notification"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trx_id\": \"1230000001\",\n  \"virtual_account\": \"8001000000000001\",\n  \"customer_name\": \"Mr. X\",\n  \"trx_amount\": \"100000\",\n  \"payment_amount\": \"100000\",\n  \"cumulative_payment_amount\": \"100000\",\n  \"payment_ntb\": \"233171\",\n  \"datetime_payment\": \"2016-03-01 14:00:00\",\n  \"datetime_payment_iso8601\": \"2016-03-01T14:00:00+07:00\"\n}"
+        }
+      }
+    }
+  ]
+}
