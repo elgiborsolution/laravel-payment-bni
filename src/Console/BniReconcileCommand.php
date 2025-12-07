@@ -12,9 +12,13 @@ class BniReconcileCommand extends Command
 
     public function handle(Reconciler $reconciler): int
     {
+        $clientId = config('bni.client_id');
+        $prefix = config('bni.prefix');
+        $secret = config('bni.secret');
+
         $limit = (int) $this->option('limit');
-        $res = $reconciler->reconcile($limit);
-        $this->info('Processed: '.$res['processed'].' | Paid: '.$res['paid'].' | Errors: '.$res['errors']);
+        $res = $reconciler->reconcile($limit, $clientId, $prefix, $secret);
+        $this->info('Processed: ' . $res['processed'] . ' | Paid: ' . $res['paid'] . ' | Errors: ' . $res['errors']);
         return self::SUCCESS;
     }
 }
