@@ -30,13 +30,13 @@ abstract class BaseClient
         ];
     }
 
-    protected function request(string $method, string $path, array $payload, $client_id = '', $prefix = ''): array
+    protected function request(string $method, string $path, array $payload, $clientId = '', $prefix = '', $secret = ''): array
     {
         $url = $this->endpoint($path);
         $correlationId = (string) Str::uuid();
 
         $log = BniPaymentLog::create([
-            'client_id' => $client_id,
+            'client_id' => $clientId,
             'channel' => $this->channel,
             'amount' => $payload['amount'] ?? 0,
             'customer_name' => $payload['customer_name'] ?? null,
@@ -47,13 +47,13 @@ abstract class BaseClient
             'ip' => request()?->ip()
         ]);
 
-        $encPayload = BniEnc::encrypt($payload, $client_id, $prefix);
+        $encPayload = BniEnc::encrypt($payload, $clientId, $secret);
 
         $response = Http::withHeaders($this->headers())
             ->timeout(config('bni.timeout'))
             ->withOptions(['verify' => config('bni.verify_ssl')])
             ->send($method, $url, [
-                'client_id' => $client_id,
+                'client_id' => $clientId,
                 'prefix' => $prefix,
                 'data' => $encPayload
             ]);
@@ -87,7 +87,7 @@ abstract class BaseClient
                 ['channel' => $this->channel, 'endpoint' => $path, 'correlation_id' => $correlationId]
             );
         } else {
-            $body = BniEnc::decrypt($body['data'], config('bni.client_id'), config('bni.secret'));
+            $body = BniEnc::decrypt($body['data'], $clientId, $secret);
         }
 
         return $body;
