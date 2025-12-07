@@ -1,5 +1,5 @@
 {
-  "name": "eligibor-solution/laravel-payment-bni",
+  "name": "elgibor-solution/laravel-payment-bni",
   "description": "Laravel package for BNI eCollection (VA) & QRIS with auditing, granular errors, tests & Postman.",
   "type": "library",
   "license": "Apache-2.0",
