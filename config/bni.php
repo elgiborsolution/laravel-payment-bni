@@ -1,7 +1,8 @@
 <?php
 
 return [
-    'hostname' => env('BNI_HOSTNAME', 'localhost'),
+    'hostname' => env('BNI_HOSTNAME', 'api.bni-ecollection.com'),
+    'hostname_staging' => env('BNI_HOSTNAME_STAGING', 'apibeta.bni-ecollection.com'),
     'port' => (int) env('BNI_PORT', 443),
     'origin' => env('BNI_ORIGIN', 'your-origin'),
     'client_id' => env('BNI_CLIENT_ID', '320'),

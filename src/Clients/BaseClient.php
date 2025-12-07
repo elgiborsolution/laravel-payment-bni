@@ -12,10 +12,21 @@ use ESolution\BNIPayment\Services\BniEnc;
 abstract class BaseClient
 {
     protected string $channel;
+    protected bool $debug = false;
+
+    protected function setDebug(bool $debug): void
+    {
+        $this->debug = $debug;
+    }
 
     protected function endpoint(string $path): string
     {
-        $host = config('bni.hostname');
+        if ($this->debug) {
+            $host = config('bni.hostname_staging');
+        } else {
+            $host = config('bni.hostname');
+        }
+
         $port = (int) config('bni.port');
         $scheme = $port === 443 ? 'https' : 'http';
         return sprintf('%s://%s%s', $scheme, $host, $path);
