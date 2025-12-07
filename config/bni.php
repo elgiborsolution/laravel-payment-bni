@@ -22,7 +22,7 @@ return [
     ],
 
     'schedule' => [
-        'enabled' => env('BNI_SCHEDULE_ENABLED', true),
+        'enabled' => env('BNI_SCHEDULE_ENABLED', false),
         'cron' => env('BNI_SCHEDULE_CRON', '*/5 * * * *'),
     ]
 ];

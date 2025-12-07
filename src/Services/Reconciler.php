@@ -13,11 +13,10 @@ class Reconciler
 {
     public function __construct(protected BniVaClient $va) {}
 
-    public function reconcile(int $limit = 100): array
+    public function reconcile(int $limit = 100, $clientId = '', $prefix = '', $secret = ''): array
     {
         $now = CarbonImmutable::now();
-        $targets = BniBilling::query()
-            ->whereNull('paid_at')
+        $targets = BniBilling::whereNull('paid_at')
             ->where(function ($q) use ($now) {
                 $q->whereNull('expired_at')->orWhere('expired_at', '>', $now->subDay());
             })
@@ -30,7 +29,7 @@ class Reconciler
         foreach ($targets as $bill) {
             $results['processed']++;
             try {
-                $res = $this->va->inquiryBilling($bill->trx_id);
+                $res = $this->va->inquiryVa($bill->trx_id, $clientId, $prefix, $secret);
                 $data = $res['data'] ?? [];
 
                 $wasPaid = ! (is_null($bill->getOriginal('paid_at')));
