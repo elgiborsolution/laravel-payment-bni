@@ -4,25 +4,18 @@ namespace ESolution\BNIPayment\Http\Controllers;
 
 use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
-use ESolution\BNIPayment\Models\BniApiCall;
-use Illuminate\Support\Str;
+use ESolution\BNIPayment\Models\BniPaymentLog;
 
 class BniCallbackController extends Controller
 {
     public function va(Request $request)
     {
-        BniApiCall::create([
+        BniPaymentLog::create([
             'channel' => 'va',
-            'endpoint' => '/callback/va',
-            'method' => 'POST',
-            'http_status' => 200,
-            'request_body' => $request->all(),
-            'response_body' => ['received' => true],
-            'bni_status' => $request->input('status'),
-            'bni_code' => $request->input('status'),
-            'ip' => $request->ip(),
-            'user_id' => auth()->id() ?? null,
-            'correlation_id' => (string) Str::uuid(),
+            'request_payload' => $request->all(),
+            'response_payload' => ['received' => true],
+            'status' => $request->input('status'),
+            'ip' => $request->ip()
         ]);
 
         return response()->json(['ok' => true]);
@@ -30,18 +23,12 @@ class BniCallbackController extends Controller
 
     public function qris(Request $request)
     {
-        BniApiCall::create([
+        BniPaymentLog::create([
             'channel' => 'qris',
-            'endpoint' => '/callback/qris',
-            'method' => 'POST',
-            'http_status' => 200,
-            'request_body' => $request->all(),
-            'response_body' => ['received' => true],
-            'bni_status' => $request->input('status'),
-            'bni_code' => $request->input('status'),
-            'ip' => $request->ip(),
-            'user_id' => auth()->id() ?? null,
-            'correlation_id' => (string) Str::uuid(),
+            'request_payload' => $request->all(),
+            'response_payload' => ['received' => true],
+            'status' => $request->input('status'),
+            'ip' => $request->ip()
         ]);
 
         return response()->json(['ok' => true]);

@@ -5,7 +5,7 @@ namespace ESolution\BNIPayment\Http\Controllers;
 use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use ESolution\BNIPayment\Models\BniApiCall;
+use ESolution\BNIPayment\Models\BniPaymentLog;
 use ESolution\BNIPayment\Events\BniPaymentReceived;
 
 class PaymentNotificationController extends Controller
@@ -14,18 +14,12 @@ class PaymentNotificationController extends Controller
     {
         $data = $request->all();
 
-        $log = BniApiCall::create([
+        $log = BniPaymentLog::create([
             'channel' => 'va',
-            'endpoint' => '/webhook/payment',
-            'method' => 'POST',
-            'http_status' => 200,
-            'request_body' => $data,
-            'response_body' => ['status' => '000'],
-            'bni_status' => '000',
-            'bni_code' => '000',
-            'ip' => $request->ip(),
-            'user_id' => auth()->id() ?? null,
-            'correlation_id' => (string) Str::uuid(),
+            'request_payload' => $data,
+            'response_payload' => ['status' => '000'],
+            'status' => '000',
+            'ip' => $request->ip()
         ]);
 
         event(new BniPaymentReceived($data, $log->id));

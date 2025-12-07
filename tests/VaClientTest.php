@@ -8,6 +8,7 @@ use ESolution\BNIPayment\BNIPaymentServiceProvider;
 use ESolution\BNIPayment\Clients\BniVaClient;
 use ESolution\BNIPayment\Models\BniApiCall;
 use ESolution\BNIPayment\Exceptions\BniApiException;
+use ESolution\BNIPayment\Models\BniPaymentLog;
 
 class BniVaClientTest extends TestCase
 {
@@ -48,7 +49,7 @@ class BniVaClientTest extends TestCase
         ]);
         $this->assertEquals('000', $res['status']);
         $this->assertDatabaseCount('bni_api_calls', 1);
-        $log = BniApiCall::first();
+        $log = BniPaymentLog::first();
         $this->assertEquals('va', $log->channel);
         $this->assertEquals('/customer/ecollection/create', $log->endpoint);
         $this->assertEquals(200, $log->http_status);
@@ -89,7 +90,7 @@ class BniVaClientTest extends TestCase
         ]);
         $this->assertEquals('000', $res['status']);
         $this->assertDatabaseCount('bni_api_calls', 1);
-        $log = BniApiCall::first();
+        $log = BniPaymentLog::first();
         $this->assertEquals('/customer/ecollection/update', $log->endpoint);
         $this->assertEquals('PUT', $log->method);
     }
@@ -121,7 +122,7 @@ class BniVaClientTest extends TestCase
         $res = $client->inquiryBilling('INV1');
         $this->assertEquals('000', $res['status']);
         $this->assertDatabaseCount('bni_api_calls', 1);
-        $log = BniApiCall::first();
+        $log = BniPaymentLog::first();
         $this->assertEquals('/customer/ecollection/inquiry', $log->endpoint);
         $this->assertEquals('POST', $log->method);
     }

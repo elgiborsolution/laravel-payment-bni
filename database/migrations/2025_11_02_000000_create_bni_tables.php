@@ -8,20 +8,37 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('bni_api_calls', function (Blueprint $table) {
+        Schema::create('bni_payment_logs', function (Blueprint $table) {
             $table->id();
             $table->string('channel', 16)->index();
-            $table->string('endpoint', 191);
-            $table->string('method', 10);
-            $table->unsignedSmallInteger('http_status')->nullable();
-            $table->json('request_body')->nullable();
-            $table->json('response_body')->nullable();
-            $table->string('bni_status', 8)->nullable()->index();
-            $table->string('bni_code', 8)->nullable();
+
+            $table->string('client_id', 100);
+            $table->string('tenant_id', 100)->nullable()->comment('Identifier for tenant, used in multi-tenant architecture');
+            $table->string('reff_id', 100)->nullable()->comment('Reference ID from related transaction, e.g. sales or order');
+
+            $table->string('customer_no', 100)->nullable();
+            $table->string('customer_name', 100)->nullable();
+            $table->string('invoice_no', 100)->nullable();
+            $table->text('qris_content')->nullable()->comment('QRIS string payload provided by BNI');
+            $table->string('va_number', 50)->nullable();
+            $table->decimal('amount', 15, 2)->default(0);
+            $table->string('status', 8)->nullable()->index();
+
+            $table->string('external_id', 100)->nullable()->comment('Unique internal request ID');
+
+            $table->dateTime('expired_at')->nullable();
+            $table->json('request_payload')->nullable();
+            $table->json('response_payload')->nullable();
+            $table->json('callback_payload')->nullable();
+            $table->dateTime('paid_at')->nullable();
+
             $table->string('ip', 64)->nullable();
-            $table->unsignedBigInteger('user_id')->nullable()->index();
-            $table->uuid('correlation_id')->index();
+
             $table->timestamps();
+
+            $table->index(['tenant_id']);
+            $table->index(['reff_id']);
+            $table->index(['invoice_no']);
         });
     }
 

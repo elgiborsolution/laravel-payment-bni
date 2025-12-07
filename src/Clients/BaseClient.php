@@ -4,7 +4,7 @@ namespace ESolution\BNIPayment\Clients;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use ESolution\BNIPayment\Models\BniApiCall;
+use ESolution\BNIPayment\Models\BniPaymentLog;
 use ESolution\BNIPayment\Exceptions\BniApiException;
 use ESolution\BNIPayment\Enums\BniCode;
 
@@ -33,14 +33,11 @@ abstract class BaseClient
         $url = $this->endpoint($path);
         $correlationId = (string) Str::uuid();
 
-        $log = BniApiCall::create([
+        $log = BniPaymentLog::create([
             'channel' => $this->channel,
-            'endpoint' => $path,
-            'method' => strtoupper($method),
-            'request_body' => $payload,
-            'correlation_id' => $correlationId,
-            'ip' => request()?->ip(),
-            'user_id' => auth()->id() ?? null,
+            'request_payload' => $payload,
+            'reff_id' => $correlationId,
+            'ip' => request()?->ip()
         ]);
 
         $response = Http::withHeaders($this->headers())
