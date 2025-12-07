@@ -6,7 +6,6 @@ use Orchestra\Testbench\TestCase;
 use Illuminate\Support\Facades\Http;
 use ESolution\BNIPayment\BNIPaymentServiceProvider;
 use ESolution\BNIPayment\Clients\BniVaClient;
-use ESolution\BNIPayment\Models\BniApiCall;
 use ESolution\BNIPayment\Exceptions\BniApiException;
 use ESolution\BNIPayment\Models\BniPaymentLog;
 
