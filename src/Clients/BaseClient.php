@@ -43,7 +43,7 @@ abstract class BaseClient
             'customer_no' => $payload['customer_phone'] ?? null,
             'request_payload' => $payload,
             'reff_id' => $payload['reff_id'] ?? null,
-            'expired_at' => $payload['datetime_expired'] ?? null,
+            'expired_at' => $payload['datetime_expired'] ? date('Y-m-d H:i:s', strtotime($payload['datetime_expired'])) : null,
             'ip' => request()?->ip()
         ]);
 
