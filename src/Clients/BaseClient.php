@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use ESolution\BNIPayment\Models\BniPaymentLog;
 use ESolution\BNIPayment\Exceptions\BniApiException;
 use ESolution\BNIPayment\Enums\BniCode;
+use ESolution\BNIPayment\Services\BniEnc;
 
 abstract class BaseClient
 {
@@ -17,7 +18,7 @@ abstract class BaseClient
         $host = config('bni.hostname');
         $port = (int) config('bni.port');
         $scheme = $port === 443 ? 'https' : 'http';
-        return sprintf('%s://%s:%d%s', $scheme, $host, $port, $path);
+        return sprintf('%s://%s%s', $scheme, $host, $path);
     }
 
     protected function headers(): array
@@ -25,25 +26,37 @@ abstract class BaseClient
         return [
             'Origin' => config('bni.origin'),
             'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
         ];
     }
 
-    protected function request(string $method, string $path, array $payload): array
+    protected function request(string $method, string $path, array $payload, $client_id = '', $prefix = ''): array
     {
         $url = $this->endpoint($path);
         $correlationId = (string) Str::uuid();
 
         $log = BniPaymentLog::create([
+            'client_id' => $client_id,
             'channel' => $this->channel,
+            'amount' => $payload['amount'] ?? 0,
+            'customer_name' => $payload['customer_name'] ?? null,
+            'customer_no' => $payload['customer_phone'] ?? null,
             'request_payload' => $payload,
-            'reff_id' => $correlationId,
+            'reff_id' => $payload['reff_id'] ?? null,
+            'expired_at' => $payload['datetime_expired'] ?? null,
             'ip' => request()?->ip()
         ]);
+
+        $encPayload = BniEnc::encrypt($payload, $client_id, $prefix);
 
         $response = Http::withHeaders($this->headers())
             ->timeout(config('bni.timeout'))
             ->withOptions(['verify' => config('bni.verify_ssl')])
-            ->send($method, $url, ['json' => $payload]);
+            ->send($method, $url, [
+                'client_id' => $client_id,
+                'prefix' => $prefix,
+                'data' => $encPayload
+            ]);
 
         $body = [];
         try {
@@ -52,10 +65,8 @@ abstract class BaseClient
         }
 
         $log->update([
-            'http_status' => $response->status(),
-            'response_body' => $body,
-            'bni_status' => $body['status'] ?? null,
-            'bni_code' => $body['status'] ?? null,
+            'response_payload' => $body,
+            'status' => $body['status'] ?? null
         ]);
 
         if (! $response->successful()) {
@@ -75,6 +86,8 @@ abstract class BaseClient
                 $body,
                 ['channel' => $this->channel, 'endpoint' => $path, 'correlation_id' => $correlationId]
             );
+        } else {
+            $body = BniEnc::decrypt($body['data'], config('bni.client_id'), config('bni.secret'));
         }
 
         return $body;

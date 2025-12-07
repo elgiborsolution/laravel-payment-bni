@@ -18,7 +18,7 @@ class BniCallbackController extends Controller
             'ip' => $request->ip()
         ]);
 
-        return response()->json(['ok' => true]);
+        return response()->json(['status' => "000"]);
     }
 
     public function qris(Request $request)
@@ -31,6 +31,6 @@ class BniCallbackController extends Controller
             'ip' => $request->ip()
         ]);
 
-        return response()->json(['ok' => true]);
+        return response()->json(['status' => "000"]);
     }
 }

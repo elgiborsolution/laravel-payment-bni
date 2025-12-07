@@ -8,10 +8,10 @@ final class BniVaClient extends BaseClient
 {
     protected string $channel = 'va';
 
-    public function createVa(array $payload): array
+    public function createVa(array $payload, $clientId = '', $prefix = ''): array
     {
         $payload['client_id'] = $payload['client_id'];
-        $res = $this->request('POST', '/customer/ecollection/create', $payload);
+        $res = $this->request('POST', '/customer/ecollection/create', $payload, $clientId, $prefix);
         $data = $res['data'] ?? [];
         $trxId = $data['trx_id'] ?? $payload['trx_id'] ?? null;
         if ($trxId) {
@@ -29,11 +29,11 @@ final class BniVaClient extends BaseClient
         return $res;
     }
 
-    public function updateVa(array $payload): array
+    public function updateVa(array $payload, $clientId = '', $prefix = ''): array
     {
         $payload['client_id'] = $payload['client_id'];
         $payload['type'] = $payload['type'] ?? 'updatebilling';
-        $res = $this->request('PUT', '/customer/ecollection/update', $payload);
+        $res = $this->request('PUT', '/customer/ecollection/update', $payload, $clientId, $prefix);
         $data = $res['data'] ?? [];
         $trxId = $data['trx_id'] ?? $payload['trx_id'] ?? null;
         if ($trxId) {
@@ -50,13 +50,13 @@ final class BniVaClient extends BaseClient
         return $res;
     }
 
-    public function inquiryVa(string $trxId, ?string $clientId = null): array
+    public function inquiryVa(string $trxId, ?string $clientId = null, $prefix = ''): array
     {
         $payload = [
             'type' => 'inquirybilling',
             'client_id' => $clientId,
             'trx_id' => $trxId,
         ];
-        return $this->request('POST', '/customer/ecollection/inquiry', $payload);
+        return $this->request('POST', '/customer/ecollection/inquiry', $payload, $clientId, $prefix);
     }
 }
