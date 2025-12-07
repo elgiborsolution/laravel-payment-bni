@@ -14,8 +14,8 @@ abstract class BaseClient
 
     protected function endpoint(string $path): string
     {
-        $host = bni_config('hostname');
-        $port = (int) bni_config('port');
+        $host = config('bni.hostname');
+        $port = (int) config('bni.port');
         $scheme = $port === 443 ? 'https' : 'http';
         return sprintf('%s://%s:%d%s', $scheme, $host, $port, $path);
     }
@@ -23,7 +23,7 @@ abstract class BaseClient
     protected function headers(): array
     {
         return [
-            'Origin' => bni_config('origin'),
+            'Origin' => config('bni.origin'),
             'Content-Type' => 'application/json',
         ];
     }
@@ -44,12 +44,15 @@ abstract class BaseClient
         ]);
 
         $response = Http::withHeaders($this->headers())
-            ->timeout(bni_config('timeout'))
-            ->withOptions(['verify' => bni_config('verify_ssl')])
+            ->timeout(config('bni.timeout'))
+            ->withOptions(['verify' => config('bni.verify_ssl')])
             ->send($method, $url, ['json' => $payload]);
 
         $body = [];
-        try { $body = $response->json() ?? []; } catch (\Throwable $e) {}
+        try {
+            $body = $response->json() ?? [];
+        } catch (\Throwable $e) {
+        }
 
         $log->update([
             'http_status' => $response->status(),
@@ -61,7 +64,7 @@ abstract class BaseClient
         if (! $response->successful()) {
             throw new BniApiException(
                 'HTTP error from BNI API',
-                (string) ($body['status'] ?? 'HTTP_'.$response->status()),
+                (string) ($body['status'] ?? 'HTTP_' . $response->status()),
                 $body,
                 ['channel' => $this->channel, 'endpoint' => $path, 'correlation_id' => $correlationId]
             );

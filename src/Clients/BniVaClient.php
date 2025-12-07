@@ -4,13 +4,13 @@ namespace ESolution\BNIPayment\Clients;
 
 use ESolution\BNIPayment\Models\BniBilling;
 
-final class VaClient extends BaseClient
+final class BniVaClient extends BaseClient
 {
     protected string $channel = 'va';
 
-    public function createBilling(array $payload): array
+    public function createVa(array $payload): array
     {
-        $payload['client_id'] = $payload['client_id'] ?? bni_config('client_id');
+        $payload['client_id'] = $payload['client_id'];
         $res = $this->request('POST', '/customer/ecollection/create', $payload);
         $data = $res['data'] ?? [];
         $trxId = $data['trx_id'] ?? $payload['trx_id'] ?? null;
@@ -29,9 +29,9 @@ final class VaClient extends BaseClient
         return $res;
     }
 
-    public function updateBilling(array $payload): array
+    public function updateVa(array $payload): array
     {
-        $payload['client_id'] = $payload['client_id'] ?? bni_config('client_id');
+        $payload['client_id'] = $payload['client_id'];
         $payload['type'] = $payload['type'] ?? 'updatebilling';
         $res = $this->request('PUT', '/customer/ecollection/update', $payload);
         $data = $res['data'] ?? [];
@@ -50,11 +50,11 @@ final class VaClient extends BaseClient
         return $res;
     }
 
-    public function inquiryBilling(string $trxId, ?string $clientId = null): array
+    public function inquiryVa(string $trxId, ?string $clientId = null): array
     {
         $payload = [
             'type' => 'inquirybilling',
-            'client_id' => $clientId ?? bni_config('client_id'),
+            'client_id' => $clientId,
             'trx_id' => $trxId,
         ];
         return $this->request('POST', '/customer/ecollection/inquiry', $payload);

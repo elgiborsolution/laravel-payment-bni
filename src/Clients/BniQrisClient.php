@@ -2,7 +2,7 @@
 
 namespace ESolution\BNIPayment\Clients;
 
-class QrisClient extends BaseClient
+class BniQrisClient extends BaseClient
 {
     protected string $channel = 'qris';
 

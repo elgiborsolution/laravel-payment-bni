@@ -3,6 +3,7 @@
 Namespace: `ESolution\BNIPayment`
 
 Fitur:
+
 - VA: create, update, inquiry
 - Webhook payment notification
 - Audit trail ke DB (request/response)
@@ -25,11 +26,11 @@ php artisan migrate
 ## Example
 
 ```php
-use ESolution\BNIPayment\Clients\VaClient;
+use ESolution\BNIPayment\Clients\BniVaClient;
 
-$res = app(VaClient::class)->createBilling([
+$res = app(BniVaClient::class)->createBilling([
   "type" => "createbilling",
-  "client_id" => bni_config('client_id'),
+  "client_id" => config('bni.client_id'),
   "trx_id" => "INV-1",
   "trx_amount" => "100000",
   "billing_type" => "c",
@@ -38,14 +39,16 @@ $res = app(VaClient::class)->createBilling([
 ```
 
 ### Inquiry
+
 ```php
-$res = app(ESolution\BNIPayment\Clients\VaClient::class)->inquiryBilling('INV-1');
+$res = app(ESolution\BNIPayment\Clients\BniVaClient::class)->inquiryBilling('INV-1');
 ```
 
 ### Update
+
 ```php
-$res = app(ESolution\BNIPayment\Clients\VaClient::class)->updateBilling([
-  "client_id" => bni_config('client_id'),
+$res = app(ESolution\BNIPayment\Clients\BniVaClient::class)->updateBilling([
+  "client_id" => config('bni.client_id'),
   "trx_id" => "INV-1",
   "trx_amount" => "100000",
   "customer_name" => "Mr. X",
@@ -54,15 +57,19 @@ $res = app(ESolution\BNIPayment\Clients\VaClient::class)->updateBilling([
 ```
 
 ## Webhook
+
 `POST /bni/va/payment-notification` → returns `{ "status": "000" }` and fires `BniPaymentReceived`.
 
 ## Reconcile
+
 ```
 php artisan bni:reconcile --limit=200
 ```
+
 Scheduler default tiap 5 menit (can be configured).
 
 ## DB Config
+
 ```
 php artisan bni:config:set hostname api.bni.test
 php artisan bni:config:get hostname
