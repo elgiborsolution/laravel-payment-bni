@@ -15,6 +15,7 @@ class PaymentNotificationController extends Controller
         $data = $request->all();
 
         $log = BniPaymentLog::create([
+            'client_id' => $request->input('client_id',),
             'channel' => 'va',
             'request_payload' => $data,
             'response_payload' => ['status' => '000'],

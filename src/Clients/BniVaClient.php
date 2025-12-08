@@ -11,7 +11,7 @@ final class BniVaClient extends BaseClient
     public function createVa(array $payload, $clientId = '', $prefix = '', $secret = ''): array
     {
         $payload['client_id'] = $payload['client_id'];
-        $res = $this->request('POST', '/customer/ecollection/create', $payload, $clientId, $prefix, $secret);
+        $res = $this->request('POST', '', $payload, $clientId, $prefix, $secret);
         $data = $res['data'] ?? [];
         $trxId = $data['trx_id'] ?? $payload['trx_id'] ?? null;
         if ($trxId) {
@@ -33,7 +33,7 @@ final class BniVaClient extends BaseClient
     {
         $payload['client_id'] = $payload['client_id'];
         $payload['type'] = $payload['type'] ?? 'updatebilling';
-        $res = $this->request('PUT', '/customer/ecollection/update', $payload, $clientId, $prefix, $secret);
+        $res = $this->request('PUT', '', $payload, $clientId, $prefix, $secret);
         $data = $res['data'] ?? [];
         $trxId = $data['trx_id'] ?? $payload['trx_id'] ?? null;
         if ($trxId) {
@@ -57,6 +57,6 @@ final class BniVaClient extends BaseClient
             'client_id' => $clientId,
             'trx_id' => $trxId,
         ];
-        return $this->request('POST', '/customer/ecollection/inquiry', $payload, $clientId, $prefix, $secret);
+        return $this->request('POST', '', $payload, $clientId, $prefix, $secret);
     }
 }

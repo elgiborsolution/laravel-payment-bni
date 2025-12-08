@@ -63,11 +63,17 @@ abstract class BaseClient
         $response = Http::withHeaders($this->headers())
             ->timeout(config('bni.timeout'))
             ->withOptions(['verify' => config('bni.verify_ssl')])
-            ->send($method, $url, [
-                'client_id' => $clientId,
-                'prefix' => $prefix,
-                'data' => $encPayload
-            ]);
+            ->send(
+                $method,
+                $url,
+                [
+                    'json' => [
+                        'client_id' => $clientId,
+                        'prefix' => $prefix,
+                        'data' => $encPayload
+                    ]
+                ]
+            );
 
         $body = [];
         try {
