@@ -14,7 +14,7 @@ abstract class BaseClient
     protected string $channel;
     protected bool $debug = false;
 
-    protected function setDebug(bool $debug): void
+    public function setDebug(bool $debug): void
     {
         $this->debug = $debug;
     }
