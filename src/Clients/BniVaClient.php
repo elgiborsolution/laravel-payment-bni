@@ -33,7 +33,7 @@ final class BniVaClient extends BaseClient
     {
         $payload['client_id'] = $payload['client_id'];
         $payload['type'] = $payload['type'] ?? 'updatebilling';
-        $res = $this->request('PUT', '', $payload, $clientId, $prefix, $secret);
+        $res = $this->request('POST', '', $payload, $clientId, $prefix, $secret);
         $data = $res['data'] ?? [];
         $trxId = $data['trx_id'] ?? $payload['trx_id'] ?? null;
         if ($trxId) {
