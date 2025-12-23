@@ -17,3 +17,11 @@ Route::group([
 Route::post('/bni/va/mock-create', [\ESolution\BNIPayment\Http\Controllers\MockController::class, 'createVa']);
 Route::put('/bni/va/mock-update', [\ESolution\BNIPayment\Http\Controllers\MockController::class, 'updateVa']);
 Route::post('/bni/va/mock-inquiry', [\ESolution\BNIPayment\Http\Controllers\MockController::class, 'inquiryVa']);
+
+
+Route::prefix('api')->group(function () {
+    
+    Route::post('/bni/{tenantId}/snap/v1.0/access-token/b2b', [\ESolution\BNIPayment\Http\Controllers\AuthTokenB2BController::class, 'handle']);
+    Route::post('/bni/{tenantId}/snap/v1.0/qr/qr-mpm-notify', [BniCallbackController::class, 'qris']);
+});
+

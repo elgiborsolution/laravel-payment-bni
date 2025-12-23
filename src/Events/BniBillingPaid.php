@@ -11,5 +11,5 @@ class BniBillingPaid
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(public BniBilling $billing) {}
+    public function __construct(public BniBilling $billing, public $tenantId=null) {}
 }
