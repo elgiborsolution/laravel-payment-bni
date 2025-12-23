@@ -2,6 +2,10 @@
 
 namespace ESolution\BNIPayment\Clients;
 
+use ESolution\BNIPayment\Services\BniQrisAuth;
+
+use ESolution\BNIPayment\Models\BniBilling;
+
 class BniQrisClient extends BaseClient
 {
     /**
@@ -10,6 +14,14 @@ class BniQrisClient extends BaseClient
      * @var string
      */
     protected string $channel = 'qris';
+
+    protected array $config;
+    public function __construct(array $config = [])
+    {
+        $this->config = $config ?: (config('bri.qris') ?? []);
+
+    }
+
 
     /**
      * Generate Dynamic QR (MPM) sesuai spesifikasi BNI QRIS MPM (SNAP BI).
@@ -46,23 +58,40 @@ class BniQrisClient extends BaseClient
      * @param  string|null $secret    Secret untuk enkripsi/signature (tergantung implementasi BaseClient).
      * @return array                  Response dari API QRIS.
      */
-    public function generateQr(array $payload, $clientId = '', $prefix = '', $secret = ''): array
+    public function generateQr(array $payload): array
     {
         // Inject merchantId & terminalId default sesuai config bila belum diisi
         if (empty($payload['merchantId'])) {
-            $payload['merchantId'] = config('bni.qris.merchant_id');
-        }
-
-        if (empty($payload['terminalId'])) {
-            $payload['terminalId'] = config('bni.qris.terminal_id');
+            $payload['merchantId'] = $this->config['merchant_id'];
         }
 
         // Path mengikuti konfigurasi; disesuaikan dengan Path di PDF (SNAP)
         // Misalnya: '/v1.0/debit/payment-qr/qr-mpm'
-        $path = config('bni.qris.path_generate_qr')
-            ?? config('bni.qris.path_create_dynamic', '/qris/create');
+        $endPoint = '/qr/qr-mpm-generate';//config('bni.qris.path_generate_qr')?? config('bni.qris.path_create_dynamic', '/qris/create');
 
-        return $this->request('POST', $path, $payload, $clientId, $prefix, $secret);
+        $version = trim($this->config['version'] ?? 'v1.0', '/');
+
+        $path = '/' . $version . $endPoint;
+
+        $res = $this->qrisRequest($this->config, 'POST', $path, $payload);
+
+        $data = $res ?? [];
+        $trxId = $data['partnerReferenceNo'] ?? null;
+        if (!empty($trxId)) {
+            BniBilling::updateOrCreate(['trx_id' => $trxId], [
+                'qris_reference_no' => $data['referenceNo'] ?? null,
+                'qris_content' => $data['qrContent'] ?? null,
+                'qris_bill_number' => $data['additionalInfo']['billNumber'] ?? null,
+                'description' => $payload['additionalInfo']['additionalData'] ?? null,
+                'trx_amount' => $payload['amount']['value'] ?? null,
+                'customer_name' => $payload['customer_name'] ?? null,
+                'customer_email' => $payload['customer_email'] ?? null,
+                'customer_phone' => $payload['customer_phone'] ?? null,
+                'billing_type' => 'qris',
+                'expired_at' => isset($payload['validityPeriod']) ? date('Y-m-d H:i:s', strtotime($payload['validityPeriod'])) : null,
+            ]);
+        }
+        return $res;
     }
 
     /**
@@ -90,8 +119,9 @@ class BniQrisClient extends BaseClient
      * @param  string|null  $secret
      * @return array
      */
-    public function queryPayment($payloadOrReferenceNo, $clientId = '', $prefix = '', $secret = ''): array
+    public function queryPayment($payloadOrReferenceNo, $serviceCode = 51): array
     {
+
         if (is_string($payloadOrReferenceNo)) {
             $payload = ['partnerReferenceNo' => $payloadOrReferenceNo];
         } else {
@@ -100,37 +130,24 @@ class BniQrisClient extends BaseClient
 
         // Path mengikuti konfigurasi; sesuaikan dengan Path MPM Query Payment di PDF.
         // Misalnya: '/v1.0/debit/payment-qr/qr-mpm/status'
-        $path = config('bni.qris.path_query_payment')
-            ?? config('bni.qris.path_inquiry_status', '/qris/inquiry');
+        // $path = config('bni.qris.path_query_payment')?? config('bni.qris.path_inquiry_status', '/qris/inquiry');
+        $endPoint = '/qr/qr-mpm-generate';
 
-        return $this->request('POST', $path, $payload, $clientId, $prefix, $secret);
+        $version = trim($this->config['version'] ?? 'v1.0', '/');
+
+        $path = '/' . $version . $endPoint;
+
+
+        $res = $this->qrisRequest($this->config, 'POST', $path, $payload, $clientId, $prefix, $secret);
+
+        $data = $res ?? [];
+        $trxId = $data['originalPartnerReferenceNo'] ?? null;
+        if ($trxId) {
+            BniBilling::where('trx_id', $trxId)->where('qris_reference_no', ($data['originalReferenceNo']??null))->update([
+                'paid_at' => isset($data['paidTime']) ? date('Y-m-d H:i:s', strtotime($data['paidTime'])) : null,
+                'qris_status' => $data['latestTransactionStatus'] ?? null,
+            ]);
+        }
     }
 
-    /**
-     * Backward-compatible alias untuk inquiry status lama.
-     *
-     * Versi lama hanya mengirim "order_id".
-     * Untuk mengikuti SNAP, disarankan:
-     * - Ganti pemanggilan ke queryPayment(['partnerReferenceNo' => $partnerRef])
-     *   atau panggil queryPayment($partnerRef).
-     *
-     * Di sini, demi kompatibilitas:
-     * - "orderId" masih diterima sebagai string
-     * - dikirim sebagai 'partnerReferenceNo' di payload ke endpoint baru.
-     *
-     * @deprecated Gunakan queryPayment() agar mengikuti istilah SNAP.
-     *
-     * @param  string      $orderId
-     * @param  string|null $clientId
-     * @param  string|null $prefix
-     * @param  string|null $secret
-     * @return array
-     */
-    public function inquiryStatus(string $orderId, $clientId = '', $prefix = '', $secret = ''): array
-    {
-        // Mapping orderId lama -> partnerReferenceNo baru
-        $payload = ['partnerReferenceNo' => $orderId];
-
-        return $this->queryPayment($payload, $clientId, $prefix, $secret);
-    }
 }

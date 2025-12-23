@@ -42,10 +42,27 @@ return [
         'path_access_token'  => env('BNI_QRIS_PATH_ACCESS_TOKEN', '/access-token/b2b'),
         'path_generate_qr'   => env('BNI_QRIS_PATH_GENERATE_QR', '/v1.0/debit/payment-qr/qr-mpm'),
         'path_query_payment' => env('BNI_QRIS_PATH_QUERY_PAYMENT', '/v1.0/debit/payment-qr/qr-mpm/status'),
+
     ],
 
     'schedule' => [
         'enabled' => env('BNI_SCHEDULE_ENABLED', false),
         'cron' => env('BNI_SCHEDULE_CRON', '*/5 * * * *'),
-    ]
+    ],
+
+    'callback' => [
+            // format
+            // clinet_id => [
+            //     client_secret :string
+            //     public_key_path :string
+            //     signature_type :integer default 1
+            // ]
+            '12345' => [
+                            'client_secret' => 'TLPy1SZnBC',
+                            'public_key_path' => 'storage/keys/bni/aneka-jaya-console-public-key-callback.pem',
+                            'signature_type' => 1
+                       ]
+    ],
+    'callback_debug' => false
+
 ];

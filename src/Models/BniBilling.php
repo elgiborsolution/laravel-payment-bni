@@ -21,7 +21,11 @@ class BniBilling extends Model
         'payment_ntb',
         'paid_at',
         'expired_at',
-        'last_inquiry_at'
+        'last_inquiry_at',
+        'qris_bill_number',
+        'qris_status',
+        'qris_content',
+        'qris_reference_no',
     ];
 
     protected $casts = [

@@ -19,6 +19,14 @@ return new class extends Migration
             $table->string('billing_type')->nullable();
             $table->string('description')->nullable();
             $table->string('va_status')->nullable();
+
+            // === tambahan QRIS ===
+            $table->string('qris_reference_no')->nullable();
+            $table->text('qris_content')->nullable();
+            $table->string('qris_status')->nullable();
+            $table->string('qris_bill_number')->nullable();
+            // =====================
+
             $table->string('payment_amount')->nullable();
             $table->string('payment_ntb')->nullable();
             $table->timestamp('paid_at')->nullable();
