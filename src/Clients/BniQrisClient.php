@@ -122,23 +122,17 @@ class BniQrisClient extends BaseClient
     public function queryPayment($payloadOrReferenceNo, $serviceCode = 51): array
     {
 
-        if (is_string($payloadOrReferenceNo)) {
-            $payload = ['partnerReferenceNo' => $payloadOrReferenceNo];
-        } else {
-            $payload = $payloadOrReferenceNo;
-        }
 
-        // Path mengikuti konfigurasi; sesuaikan dengan Path MPM Query Payment di PDF.
-        // Misalnya: '/v1.0/debit/payment-qr/qr-mpm/status'
-        // $path = config('bni.qris.path_query_payment')?? config('bni.qris.path_inquiry_status', '/qris/inquiry');
-        $endPoint = '/qr/qr-mpm-generate';
+        $payload = $this->buildPayload($payloadOrReferenceNo, $serviceCode);
+
+        $endpointPath = '/qr/qr-mpm-query';
 
         $version = trim($this->config['version'] ?? 'v1.0', '/');
 
-        $path = '/' . $version . $endPoint;
+        $path = '/' . $version . $endpointPath;
 
 
-        $res = $this->qrisRequest($this->config, 'POST', $path, $payload, $clientId, $prefix, $secret);
+        $res = $this->qrisRequest($this->config, 'POST', $path, $payload);
 
         $data = $res ?? [];
         $trxId = $data['originalPartnerReferenceNo'] ?? null;
@@ -146,8 +140,47 @@ class BniQrisClient extends BaseClient
             BniBilling::where('trx_id', $trxId)->where('qris_reference_no', ($data['originalReferenceNo']??null))->update([
                 'paid_at' => isset($data['paidTime']) ? date('Y-m-d H:i:s', strtotime($data['paidTime'])) : null,
                 'qris_status' => $data['latestTransactionStatus'] ?? null,
+                'last_inquiry_at' => now(),
             ]);
         }
+        return $data;
+    }
+
+
+    /**
+     * Construct normalized payload for Query Payment.
+     */
+    private function buildPayload($input, $serviceCode): array
+    {
+        if (is_string($input)) {
+            $billing = BniBilling::where('trx_id', $input)->first();
+            if (!$billing) {
+                throw new \InvalidArgumentException("Billing record not found for Partner Reference No: {$input}");
+            }
+
+            return [
+                'originalPartnerReferenceNo' => $billing->trx_id,
+                'originalReferenceNo'        => $billing->qris_reference_no,
+                'serviceCode'                => (string) $serviceCode,
+                'merchantId'                 => $this->config['merchant_id'] ?? '',
+                'additionalInfo'             => [
+                    'billNumber' => $billing->qris_bill_number
+                ]
+            ];
+        }
+
+        $payload = (array) $input;
+        $payload['serviceCode'] = (string) ($payload['serviceCode'] ?? $serviceCode);
+        $payload['merchantId']  = $payload['merchantId'] ?? ($this->config['merchant_id'] ?? '');
+
+        if (!isset($payload['additionalInfo']['billNumber']) && isset($payload['originalPartnerReferenceNo'])) {
+            $billing = BniBilling::where('trx_id', $payload['originalPartnerReferenceNo'])->first();
+            if ($billing && $billing->qris_bill_number) {
+                $payload['additionalInfo']['billNumber'] = $billing->qris_bill_number;
+            }
+        }
+
+        return $payload;
     }
 
 }
