@@ -112,18 +112,22 @@ class AuthTokenB2BController extends Controller
 
         $tenant = $this->initializeTenantIfNeeded($tenantId);
 
+        $timeoutToken = config('bni.oauth_timeout_minutes', 15); // default 15 menit
+
+        $expiresAt = now()->addMinutes($timeoutToken);
+
         DB::table('bni_access_tokens')->insert([
             'client_id'  => $clientId,
             'token'      => $token,
-            'expires_at' => now()->addHours(1),
+            'expires_at' => $expiresAt,
         ]);
 
         return response()->json([
-            'responseCode' => '2007300',
+            'responseCode'    => '2007300',
             'responseMessage' => 'Successful',
-            'accessToken' => $token,
-            'tokenType'   => 'BearerToken',
-            'expiresIn'   => 3600,
+            'accessToken'     => $token,
+            'tokenType'       => 'BearerToken',
+            'expiresIn'       => $timeoutToken * 60, // convert ke detik
         ], 200);
     }
 
@@ -141,7 +145,7 @@ class AuthTokenB2BController extends Controller
         }
 
         try {
-            $tenantModel = config('tenancy.tenant_model');
+            $tenantModel = config('tenancy.tenant_model', null);
 
             if (!$tenantModel || !class_exists($tenantModel)) {
                 return null;

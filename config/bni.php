@@ -8,6 +8,7 @@ return [
     'client_id' => env('BNI_CLIENT_ID', '320'),
     'timeout' => (int) env('BNI_TIMEOUT', 15),
     'verify_ssl' => (bool) env('BNI_VERIFY_SSL', true),
+    'oauth_timeout_minutes' => (int) env('BNI_OAUTH_TIMEOUT', 15),
 
     'routes' => [
         'prefix' => env('BNI_ROUTE_PREFIX', ''),
