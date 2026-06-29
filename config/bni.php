@@ -51,6 +51,10 @@ return [
         'cron' => env('BNI_SCHEDULE_CRON', '*/5 * * * *'),
     ],
 
+    'logging' => [
+        'enabled' => env('BNI_LOGGING_ENABLED', false),
+    ],
+
     'callback' => [
             // format
             // clinet_id => [

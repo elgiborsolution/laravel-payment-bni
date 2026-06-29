@@ -2,228 +2,343 @@
 
 namespace ESolution\BNIPayment\Http\Controllers;
 
+use ESolution\BNIPayment\Http\Controllers\Concerns\LogsBniControllerActivity;
 use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
 use ESolution\BNIPayment\Models\BniPaymentLog;
 use ESolution\BNIPayment\Services\BniQrisAuth;
 use ESolution\BNIPayment\Models\BniBilling;
 use ESolution\BNIPayment\Events\BniBillingPaid;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Event;
 
 class BniCallbackController extends Controller
 {
+    use LogsBniControllerActivity;
+
     public function va(Request $request)
     {
-        BniPaymentLog::create([
-            'client_id' => $request->input('client_id',),
-            'channel' => 'va',
-            'request_payload' => $request->all(),
-            'response_payload' => ['received' => true],
-            'status' => $request->input('status'),
-            'ip' => $request->ip()
-        ]);
+        $startedAt = microtime(true);
 
-        return response()->json(['status' => "000"]);
+        try {
+            $this->bniLogRequest($request, 'va.callback.received', [
+                'channel' => 'va',
+                'client_id' => $request->input('client_id', ''),
+            ]);
+
+            $log = BniPaymentLog::create([
+                'client_id' => $request->input('client_id',),
+                'channel' => 'va',
+                'request_payload' => $request->all(),
+                'response_payload' => ['received' => true],
+                'status' => $request->input('status'),
+                'ip' => $request->ip()
+            ]);
+
+            $responsePayload = ['status' => '000'];
+            $response = response()->json($responsePayload);
+
+            $this->bniLogResponse($request, 'va.callback.success', [
+                'channel' => 'va',
+                'payment_log_id' => $log->id ?? null,
+                'response' => $responsePayload,
+            ], $startedAt);
+
+            return $response;
+        } catch (\Throwable $e) {
+            $this->bniLogException($request, 'va.callback.exception', $e, [
+                'channel' => 'va',
+            ], $startedAt);
+
+            throw $e;
+        }
     }
 
     public function qris(Request $request, $tenantId = null)
     {
-        $enableLog = config('bni.callback_debug')??false; // ← set true jika ingin aktifkan log
+        $startedAt = microtime(true);
 
-        $log = function (string $message, array $context = []) use ($enableLog) {
-            if ($enableLog) {
-                Log::info($message, $context);
+        try {
+            $this->bniLogRequest($request, 'qris.callback.received', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+            ]);
+
+            // ===== INIT TENANT (SAFE) =====
+            $tenant = $this->initializeTenantIfNeeded($tenantId);
+            $this->bniLogRequest($request, 'qris.tenant.initialized', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'tenant_initialized' => (bool) $tenant,
+            ]);
+
+            // ===== STORE RAW CALLBACK LOG =====
+            $this->bniLogRequest($request, 'qris.raw_callback_logging', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+            ]);
+
+            BniPaymentLog::create([
+                'client_id' => $request->input('client_id', ''),
+                'channel' => 'qris',
+                'request_payload' => $request->all(),
+                'response_payload' => ['received' => true],
+                'status' => $request->input('latestTransactionStatus') ?? null,
+                'ip' => $request->ip()
+            ]);
+
+            // ====================== VALIDATE AUTH ===================
+            $token = $request->header('Authorization');
+
+            $this->bniLogRequest($request, 'qris.authorization.received', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'authorization_present' => ! empty($token),
+            ]);
+
+            if (! $token || !str_starts_with($token, 'Bearer ')) {
+                $response = response()->json([
+                    'responseCode' => '4003401',
+                    'responseMessage' => 'Invalid Field Format',
+                ], 400);
+
+                $this->bniLogResponse($request, 'qris.validation.failed', [
+                    'channel' => 'qris',
+                    'tenant_id' => $tenantId,
+                    'response' => [
+                        'responseCode' => '4003401',
+                        'responseMessage' => 'Invalid Field Format',
+                    ],
+                    'reason' => 'invalid_authorization_header',
+                ], $startedAt);
+
+                return $response;
             }
-        };
 
-        $log('[BNI QRIS] Callback started');
+            $token = str_replace('Bearer ', '', $token);
+            $this->bniLogRequest($request, 'qris.authorization.token_extracted', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+            ]);
 
-        $log('[BNI QRIS] Callback Header', $request->headers->all());
+            $tokenData = DB::table('bni_access_tokens')
+                ->where('token', $token)
+                ->where('expires_at', '>', now())
+                ->first();
 
-        // ===== INIT TENANT (SAFE) =====
-        $tenant = $this->initializeTenantIfNeeded($tenantId);
-        $log('[BNI QRIS] Tenant initialized', [
-            'tenant_id' => $tenantId,
-        ]);
+            $this->bniLogRequest($request, 'qris.token.lookup.completed', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'token_valid' => (bool) $tokenData,
+            ]);
 
-        // ===== STORE RAW CALLBACK LOG =====
-        $log('[BNI QRIS] Storing raw callback log');
+            if (! $tokenData) {
+                $response = response()->json([
+                    'responseCode' => '4013400',
+                    'responseMessage' => 'Unauthorized. Verify Token Auth.',
+                ], 401);
 
-        BniPaymentLog::create([
-            'client_id' => $request->input('client_id', ''),
-            'channel' => 'qris',
-            'request_payload' => $request->all(),
-            'response_payload' => ['received' => true],
-            'status' => $request->input('latestTransactionStatus') ?? null,
-            'ip' => $request->ip()
-        ]);
+                $this->bniLogResponse($request, 'qris.authorization.failed', [
+                    'channel' => 'qris',
+                    'tenant_id' => $tenantId,
+                    'response' => [
+                        'responseCode' => '4013400',
+                        'responseMessage' => 'Unauthorized. Verify Token Auth.',
+                    ],
+                    'reason' => 'token_invalid_or_expired',
+                ], $startedAt);
 
-        // ====================== VALIDATE AUTH ===================
-        $token = $request->header('Authorization');
+                return $response;
+            }
 
-        $log('[BNI QRIS] Authorization header received', [
-            'authorization_present' => !empty($token),
-        ]);
+            // ====================== START CALLBACK CONTROLLER ===================
+            $this->bniLogRequest($request, 'qris.authorization.passed', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+            ]);
 
-        if (!$token || !str_starts_with($token, 'Bearer ')) {
-            $log('[BNI QRIS] Invalid Authorization header format');
+            $validator = Validator::make($request->all(), [
+                'originalReferenceNo'         => ['required', 'string'],
+                'originalPartnerReferenceNo'  => ['nullable', 'string'],
+                'latestTransactionStatus'     => ['nullable', 'string', 'size:2', 'in:00,01,02,03,04,05,06,07'],
+                'transactionStatusDesc'       => ['nullable', 'string'],
+                'amount'                      => ['required', 'array'],
+                'amount.value'                => ['required', 'numeric', 'min:0'],
+                'amount.currency'             => ['required', 'string', 'size:3'],
+                'additionalInfo'              => ['nullable', 'array'],
+            ]);
 
-            return response()->json([
-                'responseCode' => '4003401',
-                'responseMessage' => 'Invalid Field Format',
-            ], 400);
-        }
+            $this->bniLogRequest($request, 'qris.validation.completed', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'validation_failed' => $validator->fails(),
+            ]);
 
-        $token = str_replace('Bearer ', '', $token);
-        $log('[BNI QRIS] Bearer token extracted');
+            // ===== LOAD CALLBACK CONFIG =====
+            $clientId  = $tokenData->client_id;
+            $callbackConfigAll = config('bni.callback');
 
-        $tokenData = DB::table('bni_access_tokens')
-            ->where('token', $token)
-            ->where('expires_at', '>', now())
-            ->first();
-
-        $log('[BNI QRIS] Token lookup executed', [
-            'token_valid' => (bool) $tokenData,
-        ]);
-
-        if (!$tokenData) {
-            $log('[BNI QRIS] Token invalid or expired');
-
-            return response()->json([
-                'responseCode' => '4013400',
-                'responseMessage' => 'Unauthorized. Verify Token Auth.',
-            ], 401);
-        }
-
-        // ====================== START CALLBACK CONTROLLER ===================
-        $log('[BNI QRIS] Token authentication passed');
-
-        $validator = Validator::make($request->all(), [
-            'originalReferenceNo'         => ['required', 'string'],
-            'originalPartnerReferenceNo'  => ['nullable', 'string'],
-            'latestTransactionStatus'     => ['nullable', 'string', 'size:2', 'in:00,01,02,03,04,05,06,07'],
-            'transactionStatusDesc'       => ['nullable', 'string'],
-            'amount'                      => ['required', 'array'],
-            'amount.value'                => ['required', 'numeric', 'min:0'],
-            'amount.currency'             => ['required', 'string', 'size:3'],
-            'additionalInfo'              => ['nullable', 'array'],
-        ]);
-
-        $log('[BNI QRIS] Payload validation executed', [
-            'validation_failed' => $validator->fails(),
-        ]);
-
-        // ===== LOAD CALLBACK CONFIG =====
-        $clientId  = $tokenData->client_id;
-        $callbackConfigAll = config('bni.callback');
-
-        $log('[BNI QRIS] Callback config loaded');
-
-        if (empty($callbackConfigAll[$clientId])) {
-            $log('[BNI QRIS] Client not found in callback config', [
+            $this->bniLogRequest($request, 'qris.callback.config_loaded', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
                 'client_id' => $clientId,
             ]);
 
-            return response()->json([
-                'responseCode' => '4017300',
-                'responseMessage' => 'Unauthorized Client',
-            ], 401);
-        }
+            if (empty($callbackConfigAll[$clientId])) {
+                $response = response()->json([
+                    'responseCode' => '4017300',
+                    'responseMessage' => 'Unauthorized Client',
+                ], 401);
 
-        $config = $callbackConfigAll[$clientId];
-        $log('[BNI QRIS] Client callback config assigned');
+                $this->bniLogResponse($request, 'qris.authorization.failed', [
+                    'channel' => 'qris',
+                    'tenant_id' => $tenantId,
+                    'client_id' => $clientId,
+                    'response' => [
+                        'responseCode' => '4017300',
+                        'responseMessage' => 'Unauthorized Client',
+                    ],
+                    'reason' => 'client_not_configured',
+                ], $startedAt);
 
-        // ===== BUILD SIGNATURE =====
-        $auth  = new BniQrisAuth($config);
+                return $response;
+            }
 
-        $timestamp = $request->header('X-TIMESTAMP');
-        $signature = $request->header('X-SIGNATURE') ?? '';
-
-        $log('[BNI QRIS] Signature headers received', [
-            'timestamp' => $timestamp,
-            'signature_present' => !empty($signature),
-        ]);
-
-        $absoluteUrl = $request->fullUrl();
-        $url = $request->getPathInfo();
-
-        $pos = strpos($url, '/snap/');
-        $urlSnap = $pos !== false ? substr($url, $pos) : '';
-
-        $log('[BNI QRIS] URL resolved', [
-            'absolute_url' => $absoluteUrl,
-            'path' => $url,
-            'snap_path' => $urlSnap,
-        ]);
-
-        $body = $request->getContent();
-        $bodyRaw = json_decode($body, true) ?? [];
-
-        $log('[BNI QRIS] Raw body captured', [
-            'raw_body' => $bodyRaw,
-        ]);
-
-        $expected = $auth->buildRequestSignature(
-            'POST',
-            $url,
-            $bodyRaw,
-            $timestamp,
-            $token
-        );
-
-        $log('[BNI QRIS] Signature generated using full path');
-
-        $expectedAlt = $auth->buildRequestSignature(
-            'POST',
-            $urlSnap,
-            $bodyRaw,
-            $timestamp,
-            $token
-        );
-
-        $log('[BNI QRIS] Signature generated using snap path');
-
-        // ===== SIGNATURE COMPARISON =====
-        $valid = hash_equals($signature, $expected) || hash_equals($signature, $expectedAlt);
-
-        $log('[BNI QRIS] Signature comparison result', [
-            'is_valid' => $valid,
-        ]);
-
-        // ===== UPDATE BILLING IF EXISTS =====
-        $billing = BniBilling::where('qris_reference_no', $request->originalReferenceNo)->first();
-
-        $log('[BNI QRIS] Billing lookup executed', [
-            'reference_no' => $request->originalReferenceNo,
-            'billing_found' => (bool) $billing,
-        ]);
-
-        if (!empty($billing)) {
-            $billing->update([
-                'payment_amount' => $request->amount['value']??0,
-                'qris_status' => $request->latestTransactionStatus,
-                'paid_at' => isset($request->additionalInfo['paidTime']) ? date('Y-m-d H:i:s', strtotime($request->additionalInfo['paidTime'])) : null
+            $config = $callbackConfigAll[$clientId];
+            $this->bniLogRequest($request, 'qris.callback.config_assigned', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'client_id' => $clientId,
             ]);
 
-            $log('[BNI QRIS] Billing status updated', [
-                'payment_amount' => $request->amount['value']??0,
-                'status' => $request->latestTransactionStatus,
-                'paid_at' => isset($request->additionalInfo['paidTime']) ? date('Y-m-d H:i:s', strtotime($request->additionalInfo['paidTime'])) : null
+            // ===== BUILD SIGNATURE =====
+            $auth  = new BniQrisAuth($config);
+
+            $timestamp = $request->header('X-TIMESTAMP');
+            $signature = $request->header('X-SIGNATURE') ?? '';
+
+            $this->bniLogRequest($request, 'qris.signature.headers_received', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'timestamp' => $timestamp,
+                'signature_present' => ! empty($signature),
             ]);
 
-            Event::dispatch(new BniBillingPaid($billing, $tenantId));
-            $log('[BNI QRIS] BniBillingPaid event dispatched');
+            $absoluteUrl = $request->fullUrl();
+            $url = $request->getPathInfo();
+
+            $pos = strpos($url, '/snap/');
+            $urlSnap = $pos !== false ? substr($url, $pos) : '';
+
+            $this->bniLogRequest($request, 'qris.url.resolved', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'absolute_url' => $absoluteUrl,
+                'path' => $url,
+                'snap_path' => $urlSnap,
+            ]);
+
+            $body = $request->getContent();
+            $bodyRaw = json_decode($body, true) ?? [];
+
+            $this->bniLogRequest($request, 'qris.raw_body.captured', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'raw_body' => $this->bniMaskData($bodyRaw),
+            ]);
+
+            $expected = $auth->buildRequestSignature(
+                'POST',
+                $url,
+                $bodyRaw,
+                $timestamp,
+                $token
+            );
+
+            $this->bniLogRequest($request, 'qris.signature.generated', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'signature_path' => 'full',
+            ]);
+
+            $expectedAlt = $auth->buildRequestSignature(
+                'POST',
+                $urlSnap,
+                $bodyRaw,
+                $timestamp,
+                $token
+            );
+
+            $this->bniLogRequest($request, 'qris.signature.generated', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'signature_path' => 'snap',
+            ]);
+
+            // ===== SIGNATURE COMPARISON =====
+            $valid = hash_equals($signature, $expected) || hash_equals($signature, $expectedAlt);
+
+            $this->bniLogRequest($request, 'qris.signature.compared', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'is_valid' => $valid,
+            ]);
+
+            // ===== UPDATE BILLING IF EXISTS =====
+            $billing = BniBilling::where('qris_reference_no', $request->originalReferenceNo)->first();
+
+            $this->bniLogRequest($request, 'qris.billing.lookup.completed', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'reference_no' => $request->originalReferenceNo,
+                'billing_found' => (bool) $billing,
+            ]);
+
+            if (!empty($billing)) {
+                $billing->update([
+                    'payment_amount' => $request->amount['value']??0,
+                    'qris_status' => $request->latestTransactionStatus,
+                    'paid_at' => isset($request->additionalInfo['paidTime']) ? date('Y-m-d H:i:s', strtotime($request->additionalInfo['paidTime'])) : null
+                ]);
+
+                $this->bniLogRequest($request, 'qris.billing.updated', [
+                    'channel' => 'qris',
+                    'tenant_id' => $tenantId,
+                    'payment_amount' => $request->amount['value']??0,
+                    'status' => $request->latestTransactionStatus,
+                    'paid_at' => isset($request->additionalInfo['paidTime']) ? date('Y-m-d H:i:s', strtotime($request->additionalInfo['paidTime'])) : null
+                ]);
+
+                Event::dispatch(new BniBillingPaid($billing, $tenantId));
+                $this->bniLogRequest($request, 'qris.billing.paid.event_dispatched', [
+                    'channel' => 'qris',
+                    'tenant_id' => $tenantId,
+                ]);
+            }
+
+            $responsePayload = [
+                'responseCode' => '2005200',
+                'responseMessage' => ($valid ? 'Request has been processed successfully' : 'Unauthorized. [Invalid X-SIGNATURE]')
+            ];
+
+            $response = response()->json($responsePayload, 200);
+
+            $this->bniLogResponse($request, 'qris.callback.completed', [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+                'response' => $responsePayload,
+            ], $startedAt);
+
+            return $response;
+        } catch (\Throwable $e) {
+            $this->bniLogException($request, 'qris.callback.exception', $e, [
+                'channel' => 'qris',
+                'tenant_id' => $tenantId,
+            ], $startedAt);
+
+            throw $e;
         }
-
-        $log('[BNI QRIS] Callback completed');
-
-        return response()->json([
-            'responseCode' => '2005200',
-            'responseMessage' => ($valid ? 'Request has been processed successfully' : 'Unauthorized. [Invalid X-SIGNATURE]')
-        ], 200);
     }
 
 
