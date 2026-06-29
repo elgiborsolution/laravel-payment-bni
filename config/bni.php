@@ -67,7 +67,6 @@ return [
                             'public_key_path' => 'storage/keys/bni/aneka-jaya-console-public-key-callback.pem',
                             'signature_type' => 1
                        ]
-    ],
-    'callback_debug' => false
+    ]
 
 ];
