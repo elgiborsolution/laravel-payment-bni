@@ -22,7 +22,6 @@ return [
 
         'version' => env('BNI_SNAP_VERSION', 'v1.0'),
 
-        // kredensial SNAP
         'client_id' => env('BNI_SNAP_CLIENT_ID', env('BNI_CLIENT_ID')),
         'client_key' => env('BNI_SNAP_CLIENT_KEY', env('BNI_CLIENT_ID')),
         'client_secret' => env('BNI_SNAP_CLIENT_SECRET', ''),
